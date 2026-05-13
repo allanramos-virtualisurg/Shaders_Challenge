@@ -1,0 +1,66 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float4> Result;
+
+float Scale;
+float Time;
+float Speed;
+
+// Hash 3D para gerar gradientes aleatórios nos vértices do cubo
+float3 hash(float3 p)
+{
+    p = float3(dot(p, float3(127.1, 311.7, 74.7)),
+               dot(p, float3(269.5, 183.3, 246.1)),
+               dot(p, float3(113.5, 271.9, 124.6)));
+    return -1.0 + 2.0 * frac(sin(p) * 43758.5453123);
+}
+
+float perlinNoise3D(float3 p)
+{
+    float3 i = floor(p);
+    float3 f = frac(p);
+
+    // Quinta ordem (Quintic) suaviza melhor que o Smoothstep comum
+    // f * f * f * (f * (f * 6.0 - 15.0) + 10.0)
+    float3 u = f * f * (3.0 - 2.0 * f);
+
+    // Cálculo dos 8 vértices do cubo
+    float d000 = dot(hash(i + float3(0, 0, 0)), f - float3(0, 0, 0));
+    float d100 = dot(hash(i + float3(1, 0, 0)), f - float3(1, 0, 0));
+    float d010 = dot(hash(i + float3(0, 1, 0)), f - float3(0, 1, 0));
+    float d110 = dot(hash(i + float3(1, 1, 0)), f - float3(1, 1, 0));
+    float d001 = dot(hash(i + float3(0, 0, 1)), f - float3(0, 0, 1));
+    float d101 = dot(hash(i + float3(1, 0, 1)), f - float3(1, 0, 1));
+    float d011 = dot(hash(i + float3(0, 1, 1)), f - float3(0, 1, 1));
+    float d111 = dot(hash(i + float3(1, 1, 1)), f - float3(1, 1, 1));
+
+    // Interpolação Trilinear
+    return lerp(
+        lerp(lerp(d000, d100, u.x), lerp(d010, d110, u.x), u.y),
+        lerp(lerp(d001, d101, u.x), lerp(d011, d111, u.x), u.y), 
+        u.z
+    );
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint width, height;
+    Result.GetDimensions(width, height);
+
+    if (id.x >= width || id.y >= height)
+        return;
+    
+    float u = (float) id.x / (float) width;
+    float v = (float) id.y / (float) height;
+    
+    float2 uv = float2(u, v);
+    
+    float noise = perlinNoise3D(float3(uv * Scale, Time * Speed));
+    noise = noise * 0.5 + 0.5;
+
+    Result[id.xy] = float4(noise.xxxx);
+}

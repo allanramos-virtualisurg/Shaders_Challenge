@@ -1,0 +1,62 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float4> Result;
+
+float CellSize;
+float Speed;
+float Time;
+
+// Hash 3D para gerar pontos aleatórios dentro de cubos
+float3 hash33(float3 p)
+{
+    p = float3(dot(p, float3(127.1, 311.7, 74.7)),
+               dot(p, float3(269.5, 183.3, 246.1)),
+               dot(p, float3(113.5, 271.9, 124.6)));
+    return frac(sin(p) * 43758.5453);
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint width, height;
+    Result.GetDimensions(width, height);
+
+    if (id.x >= width || id.y >= height)
+        return;
+    
+    float u = (float) id.x / (float) width;
+    float v = (float) id.y / (float) height;
+    
+    float2 uv = float2(u, v);
+    
+    float3 p = float3(uv * CellSize, Time * Speed) ;
+    float3 g = floor(p);
+    float3 f = frac(p);
+
+    float minDist = 1.0;
+
+    // Loop 3x3x3 (27 iterações) para encontrar o ponto mais próximo no espaço 3D
+    for (int z = -1; z <= 1; z++)
+    {
+        for (int y = -1; y <= 1; y++)
+        {
+            for (int x = -1; x <= 1; x++)
+            {
+                float3 neighbor = float3(float(x), float(y), float(z));
+                float3 pointInCell = hash33(g + neighbor);
+                
+                pointInCell = 0.5 + 0.5 * sin(Time * Speed + 6.2831 * pointInCell);
+                            
+                float3 diff = neighbor + pointInCell - f;
+                float dist = length(diff);
+
+                minDist = min(minDist, dist);
+            }
+        }
+    }
+
+    Result[id.xy] = float4(minDist.xxxx);
+}

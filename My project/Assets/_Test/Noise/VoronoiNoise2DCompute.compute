@@ -1,0 +1,52 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float4> Result;
+
+float CellSize;
+
+float2 hash22(float2 p)
+{
+    p = float2(dot(p, float2(127.1, 311.7)), dot(p, float2(269.5, 183.3)));
+    return frac(sin(p) * 43758.5453);
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint width, height;
+    Result.GetDimensions(width, height);
+
+    if (id.x >= width || id.y >= height)
+        return;
+    
+    float u = (float) id.x / (float) width;
+    float v = (float) id.y / (float) height;
+    
+    float2 uv = float2(u, v) * CellSize;
+    float2 g = floor(uv);
+    float2 f = frac(uv);
+
+    float minDist = 1.0;
+
+    // Loop 3x3 para verificar células vizinhas
+    for (int y = -1; y <= 1; y++)
+    {
+        for (int x = -1; x <= 1; x++)
+        {
+            float2 neighbor = float2(float(x), float(y));
+            // Ponto aleatório na célula vizinha
+            float2 pointInCell = hash22(g + neighbor);
+                        
+            // Vetor entre o pixel e o ponto
+            float2 diff = neighbor + pointInCell - f;
+            float dist = length(diff);
+
+            minDist = min(minDist, dist);
+        }
+    }
+
+    Result[id.xy] = float4(minDist.xxxx);
+}

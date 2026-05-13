@@ -1,0 +1,52 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float4> Result;
+
+float Scale;
+float Time;
+float Speed;
+
+// Funções auxiliares para gerar o ruído gradiente
+float2 hash(float2 p)
+{
+    p = float2(dot(p, float2(127.1, 311.7)), dot(p, float2(269.5, 183.3)));
+    return -1.0 + 2.0 * frac(sin(p) * 43758.5453123);
+}
+
+float perlinNoise(float2 p)
+{
+    float2 i = floor(p);
+    float2 f = frac(p);
+
+    // Interpolação suave (Smoothstep)
+    float2 u = f * f * (3.0 - 2.0 * f);
+
+    return lerp(lerp(dot(hash(i + float2(0.0, 0.0)), f - float2(0.0, 0.0)),
+                     dot(hash(i + float2(1.0, 0.0)), f - float2(1.0, 0.0)), u.x),
+                lerp(dot(hash(i + float2(0.0, 1.0)), f - float2(0.0, 1.0)),
+                     dot(hash(i + float2(1.0, 1.0)), f - float2(1.0, 1.0)), u.x), u.y);
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint width, height;
+    Result.GetDimensions(width, height);
+
+    if (id.x >= width || id.y >= height)
+        return;
+    
+    float u = (float) id.x / (float) width;
+    float v = (float) id.y / (float) height;
+    
+    float2 uv = float2(u, v);
+    // O Perlin Noise retorna valores entre -1 e 1, 
+    // mapeamos para 0 e 1 para exibição de cores
+    float noise = perlinNoise(uv * Scale + (Time * Speed));
+    noise = noise * 0.5 + 0.5;
+
+    Result[id.xy] = float4(noise.xxxx);
+}
