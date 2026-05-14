@@ -15,7 +15,7 @@ Shader "Custom/SimpleURPTessellation"
         {
             Name "ForwardLit"
             HLSLPROGRAM
-            #pragma target // Necessário para suporte a Tessellation
+            #pragma target 4.6 // Necessário para suporte a Tessellation
             #pragma vertex TessellationVertex
             #pragma hull hull
             #pragma domain domain
@@ -110,6 +110,7 @@ Shader "Custom/SimpleURPTessellation"
             // --- Fragment Shader ---
             half4 frag(Varyings i) : SV_Target
             {
+                
                 half4 col = tex2D(_MainTex, i.uv);
                 return col;
             }
