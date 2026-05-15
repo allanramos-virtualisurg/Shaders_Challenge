@@ -100,5 +100,45 @@ Shader "NedMakesGames/TessellationSample" {
             
             ENDHLSL
         }
+
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags { "LightMode" = "ShadowCaster" }
+
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+
+            HLSLPROGRAM
+            #pragma vertex ShadowPassVertex
+            #pragma fragment ShadowPassFragment
+            
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            
+            struct ShadowAttributes {
+                float4 positionOS   : POSITION;
+                float3 normalOS     : NORMAL;
+            };
+
+            struct ShadowVaryings {
+                float4 positionCS   : SV_POSITION;
+            };
+
+            ShadowVaryings ShadowPassVertex(ShadowAttributes input) {
+                ShadowVaryings output;
+                float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
+                float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
+                
+                // Apply shadow bias to prevent artifacts
+                output.positionCS = TransformWorldToHClip(ApplyShadowBias(positionWS, normalWS, _MainLightPosition.xyz));
+                return output;
+            }
+
+            half4 ShadowPassFragment(ShadowVaryings input) : SV_TARGET {
+                return 0;
+            }
+            ENDHLSL
+        }
     }
 }

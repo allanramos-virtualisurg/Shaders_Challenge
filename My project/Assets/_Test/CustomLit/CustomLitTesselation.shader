@@ -18,6 +18,7 @@ Shader "URP/CustomLitTessellation"
         
         [Header(Tessellation Settings)]
         [Space(10)]
+        [KeywordEnum(INTEGER, FRAC_EVEN, FRAC_ODD, POW2)] _PARTITIONING("Partition Algoritm", Float) = 0
         _Tess ("Tessellation Factor", Range(1, 64)) = 4
         _MaxTessDist ("Max Tessellation Distance", Float) = 20
         _HeightMap ("Height Map (Displacement)", 2D) = "gray" {}
@@ -37,6 +38,8 @@ Shader "URP/CustomLitTessellation"
             #pragma hull hull
             #pragma domain domain
             #pragma fragment frag
+            
+            #pragma shader_feature_local _PARTITIONING_INTEGER _PARTITIONING_FRAC_EVEN _PARTITIONING_FRAC_ODD _PARTITIONING_POW2
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -124,7 +127,20 @@ Shader "URP/CustomLitTessellation"
             }
 
             [domain("tri")]
+            
+            // Select a partitioning mode based on keywords
+            #if defined(_PARTITIONING_INTEGER)
+            [partitioning("integer")]
+            #elif defined(_PARTITIONING_FRAC_EVEN)
+            [partitioning("fractional_even")]
+            #elif defined(_PARTITIONING_FRAC_ODD)
             [partitioning("fractional_odd")]
+            #elif defined(_PARTITIONING_POW2)
+            [partitioning("pow2")]
+            #else 
+            [partitioning("fractional_odd")]
+            #endif
+            
             [outputtopology("triangle_cw")]
             [patchconstantfunc("patchConstantFunc")]
             [outputcontrolpoints(3)]

@@ -16,7 +16,7 @@ Shader "Custom/TessellationDistance_Unlit"
         {
             Name "ForwardLit"
             HLSLPROGRAM
-            #pragma target 4.6
+            #pragma target 5.0
             #pragma vertex TessellationVertex
             #pragma hull hull
             #pragma domain domain
