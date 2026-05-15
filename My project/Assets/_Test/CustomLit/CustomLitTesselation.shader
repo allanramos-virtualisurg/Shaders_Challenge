@@ -1,28 +1,27 @@
-Shader "Custom/PBR_Tessellation_Distance"
+Shader "URP/CustomLitTessellation"
 {
     Properties
     {
-        [Header(Tessellation Settings)]
-        _Tess ("Tessellation Factor", Range(1, 64)) = 4
-        _MaxTessDist ("Max Tessellation Distance", Float) = 20
-        _HeightMap ("Height Map (Displacement)", 2D) = "gray" {}
-        _Displacement ("Displacement Amount", Range(0, 1)) = 0.1
-
-        [Header(PBR Maps)]
         _BaseMap("Albedo", 2D) = "white" {}
         _BaseColor("Color Tint", Color) = (1,1,1,1)
+                
         [Normal] _NormalMap("Normal Map", 2D) = "bump" {}
         _BumpScale("Normal Scale", Float) = 1.0
         
-        _Metallic("Metallic Intensity", Range(0, 1)) = 0.0
-        _Smoothness("Smoothness Intensity", Range(0, 1)) = 0.5
-        _MetallicGlossMap("Metallic (R) Smoothness (A)", 2D) = "white" {}
-        
-        _OcclusionMap("Occlusion", 2D) = "white" {}
+        _ORMMap("Occlusion(R) Roughness (G) Metallic (B) ", 2D) = "white" {}
+        _Metallic("Metallic", Range(0, 1)) = 0.0
+        _Smoothness("Smoothness", Range(0, 1)) = 0.5
         _OcclusionStrength("Occlusion Strength", Range(0, 1)) = 1.0
         
         [HDR] _EmissionColor("Emission Color", Color) = (0,0,0)
         _EmissionMap("Emission Map", 2D) = "white" {}
+        
+        [Header(Tessellation Settings)]
+        [Space(10)]
+        _Tess ("Tessellation Factor", Range(1, 64)) = 4
+        _MaxTessDist ("Max Tessellation Distance", Float) = 20
+        _HeightMap ("Height Map (Displacement)", 2D) = "gray" {}
+        _Displacement ("Displacement Amount", Range(0, 1)) = 0.1
     }
 
     SubShader
@@ -86,8 +85,7 @@ Shader "Custom/PBR_Tessellation_Distance"
 
             TEXTURE2D(_BaseMap);           SAMPLER(sampler_BaseMap);
             TEXTURE2D(_NormalMap);         SAMPLER(sampler_NormalMap);
-            TEXTURE2D(_MetallicGlossMap);  SAMPLER(sampler_MetallicGlossMap);
-            TEXTURE2D(_OcclusionMap);      SAMPLER(sampler_OcclusionMap);
+            TEXTURE2D(_ORMMap);            SAMPLER(sampler_ORMMap);
             TEXTURE2D(_EmissionMap);       SAMPLER(sampler_EmissionMap);
             TEXTURE2D(_HeightMap);         SAMPLER(sampler_HeightMap);
 
@@ -162,8 +160,7 @@ Shader "Custom/PBR_Tessellation_Distance"
                 // 1. Amostragens
                 half4 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv) * _BaseColor;
                 half3 normalSample = UnpackNormalScale(SAMPLE_TEXTURE2D(_NormalMap, sampler_NormalMap, i.uv), _BumpScale);
-                half4 specMap = SAMPLE_TEXTURE2D(_MetallicGlossMap, sampler_MetallicGlossMap, i.uv);
-                half ao = SAMPLE_TEXTURE2D(_OcclusionMap, sampler_OcclusionMap, i.uv).r;
+                half4 ormMap = SAMPLE_TEXTURE2D(_ORMMap, sampler_ORMMap, i.uv);
                 half3 emission = SAMPLE_TEXTURE2D(_EmissionMap, sampler_EmissionMap, i.uv).rgb * _EmissionColor.rgb;
 
                 // 2. Normal Mapping (TBN)
@@ -174,9 +171,9 @@ Shader "Custom/PBR_Tessellation_Distance"
                 // 3. Surface Data
                 SurfaceData surfaceData = (SurfaceData)0;
                 surfaceData.albedo = albedo.rgb;
-                surfaceData.metallic = specMap.b * _Metallic;
-                surfaceData.smoothness = specMap.g * _Smoothness;
-                surfaceData.occlusion = LerpWhiteTo(ao, _OcclusionStrength);
+                surfaceData.occlusion = LerpWhiteTo(ormMap.r, _OcclusionStrength);
+                surfaceData.smoothness = ormMap.g * _Smoothness;
+                surfaceData.metallic = ormMap.b * _Metallic;
                 surfaceData.emission = emission;
                 surfaceData.alpha = albedo.a;
 
@@ -191,6 +188,47 @@ Shader "Custom/PBR_Tessellation_Distance"
                 return UniversalFragmentPBR(inputData, surfaceData);
             }
             
+            ENDHLSL
+        }
+
+        // --- PASS 2: SHADOW CASTER (Casts Shadows) ---
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags { "LightMode" = "ShadowCaster" }
+
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+
+            HLSLPROGRAM
+            #pragma vertex ShadowPassVertex
+            #pragma fragment ShadowPassFragment
+            
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            
+            struct ShadowAttributes {
+                float4 positionOS   : POSITION;
+                float3 normalOS     : NORMAL;
+            };
+
+            struct ShadowVaryings {
+                float4 positionCS   : SV_POSITION;
+            };
+
+            ShadowVaryings ShadowPassVertex(ShadowAttributes input) {
+                ShadowVaryings output;
+                float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
+                float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
+                
+                // Apply shadow bias to prevent artifacts
+                output.positionCS = TransformWorldToHClip(ApplyShadowBias(positionWS, normalWS, _MainLightPosition.xyz));
+                return output;
+            }
+
+            half4 ShadowPassFragment(ShadowVaryings input) : SV_TARGET {
+                return 0;
+            }
             ENDHLSL
         }
     }

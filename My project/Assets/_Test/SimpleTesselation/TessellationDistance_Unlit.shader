@@ -1,4 +1,4 @@
-Shader "Custom/TessellationDistance"
+Shader "Custom/TessellationDistance_Unlit"
 {
     Properties
     {

@@ -33,7 +33,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Displacement: 0.075
-    - _Tess: 1
+    - _Displacement: 0.087
+    - _Tess: 1.4
     m_Colors: []
   m_BuildTextureStacks: []
