@@ -10,17 +10,17 @@ public class PokeDeformerTool : MonoBehaviour
     [Header("Tool Points")]
     [Tooltip("Empty GameObject placed at the tip of the tool")]
     public Transform toolTip;
-    [Tooltip("Empty GameObject placed at the base of the tip (can be the same as Tool Tip for a spherical effect)")]
+    [Tooltip("Empty GameObject placed further back along the tool shaft (defines how deep you can push without passing through)")]
     public Transform toolBase;
 
     [Header("Deformation Settings")]
-    [Tooltip("Inner radius where deformation is at 100% strength")]
-    public float tipRadius = 0.15f;
-    [Tooltip("Extra outer radius where deformation smoothly fades to 0%")]
+    [Tooltip("Inner radius of the tool tip")]
+    public float tipRadius = 0.1f;
+    [Tooltip("Surrounding area that gets pulled along smoothly")]
     [Min(0f)]
-    public float falloffRadius = 0.25f;
-    [Range(-2f, 2f)]
-    public float deformDepth = -0.3f;
+    public float falloffRadius = 0.6f;
+    [Tooltip("1.0 = surface stays exactly in front of the tool tip")]
+    public float pushMultiplier = 1.0f;
 
     [Header("Gizmos")]
     public bool showGizmos = true;
@@ -31,20 +31,21 @@ public class PokeDeformerTool : MonoBehaviour
     private static readonly int PointBID = Shader.PropertyToID("_CapsulePointB");
     private static readonly int RadiusID = Shader.PropertyToID("_CapsuleRadius");
     private static readonly int FalloffID = Shader.PropertyToID("_DeformFalloff");
-    private static readonly int HeightID = Shader.PropertyToID("_CapsuleDeformHeight");
+    private static readonly int MultiplierID = Shader.PropertyToID("_DeformMultiplier");
 
     void Update()
     {
         if (targetMaterial == null || toolTip == null) return;
 
         Vector3 pointA = toolTip.position;
-        Vector3 pointB = toolBase != null ? toolBase.position : pointA;
+        // If no base is assigned, automatically project 2 units backwards along the tool's up/forward axis
+        Vector3 pointB = toolBase != null ? toolBase.position : (pointA - toolTip.forward * 2.0f);
 
         targetMaterial.SetVector(PointAID, pointA);
         targetMaterial.SetVector(PointBID, pointB);
         targetMaterial.SetFloat(RadiusID, tipRadius);
         targetMaterial.SetFloat(FalloffID, falloffRadius);
-        targetMaterial.SetFloat(HeightID, deformDepth);
+        targetMaterial.SetFloat(MultiplierID, pushMultiplier);
     }
 
     private void OnDrawGizmos()
@@ -52,12 +53,10 @@ public class PokeDeformerTool : MonoBehaviour
         if (!showGizmos || toolTip == null) return;
 
         Vector3 pA = toolTip.position;
-        Vector3 pB = toolBase != null ? toolBase.position : pA;
+        Vector3 pB = toolBase != null ? toolBase.position : (pA - toolTip.forward * 2.0f);
 
-        // Draw Core Capsule (100% deformation)
         DrawCapsuleGizmo(pA, pB, tipRadius, coreGizmoColor);
 
-        // Draw Falloff Capsule (Smooth transition area)
         if (falloffRadius > 0.001f)
         {
             DrawCapsuleGizmo(pA, pB, tipRadius + falloffRadius, falloffGizmoColor);

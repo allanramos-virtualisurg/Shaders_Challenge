@@ -281,9 +281,9 @@ MonoBehaviour:
   targetMaterial: {fileID: 2100000, guid: bd962d64001b67e4b8dc9c1220a7b5ab, type: 2}
   toolTip: {fileID: 1795349261}
   toolBase: {fileID: 1451892876}
-  tipRadius: 0.005
+  tipRadius: 0.01
   falloffRadius: 0.02
-  deformDepth: -0.015
+  pushMultiplier: 1.66
   showGizmos: 1
   coreGizmoColor: {r: 0, g: 1, b: 1, a: 0.9}
   falloffGizmoColor: {r: 1, g: 0.85, b: 0, a: 0.45}
@@ -375,8 +375,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 749611441}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.020038549, y: -0.4574726, z: 0.006867442, w: 0.8889714}
-  m_LocalPosition: {x: -0.0859, y: 0.351, z: 0.056}
+  m_LocalRotation: {x: -0.36628532, y: -0.2546642, z: 0.5438954, w: 0.71074545}
+  m_LocalPosition: {x: -0.1585, y: 0.2011, z: 0.0336}
   m_LocalScale: {x: 0.007846967, y: 0.043852586, z: 0.007846967}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -384,7 +384,7 @@ Transform:
   - {fileID: 1451892876}
   - {fileID: 1739406935}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: -1.682, y: -54.487, z: 1.751}
+  m_LocalEulerAnglesHint: {x: -14.102, y: -51.635, z: 81.699}
 --- !u!1 &961739749
 GameObject:
   m_ObjectHideFlags: 0
@@ -649,7 +649,7 @@ Transform:
   m_GameObject: {fileID: 1739406934}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0.000000014901159, w: 1}
-  m_LocalPosition: {x: -0, y: -1.205, z: -0}
+  m_LocalPosition: {x: -0, y: -1.18, z: 0}
   m_LocalScale: {x: -2.5249925, y: -0.45182142, z: -2.5249932}
   m_ConstrainProportionsScale: 0
   m_Children: []

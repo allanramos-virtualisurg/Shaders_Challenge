@@ -9,15 +9,15 @@ Shader "Custom/Poke_Deform_Tessellated"
         _Smoothness ("Smoothness", Range(0,1)) = 0.5
         
         [Header(Tessellation Settings)]
-        _TessellationFactor ("Max Subdivisions", Range(1, 64)) = 16
-        _TessellationMargin ("Extra Tessellation Margin", Float) = 0.1
+        _TessellationFactor ("Max Subdivisions", Range(1, 64)) = 24
+        _TessellationMargin ("Extra Tessellation Margin", Float) = 0.2
         
         [Header(Deformation Settings)]
-        _CapsulePointA ("Capsule Point A", Vector) = (0,0,0)
-        _CapsulePointB ("Capsule Point B", Vector) = (0,0,0)
-        _CapsuleRadius ("Core Radius", Float) = 0.2
-        _DeformFalloff ("Falloff Radius (Smooth Area)", Float) = 0.3
-        _CapsuleDeformHeight ("Deform Height (Neg = Poke In)", Range(-2, 2)) = -0.5
+        _CapsulePointA ("Capsule Point A (Tip)", Vector) = (0,0,0)
+        _CapsulePointB ("Capsule Point B (Base)", Vector) = (0,0,0)
+        _CapsuleRadius ("Core Radius", Float) = 0.1
+        _DeformFalloff ("Falloff Radius (Area)", Float) = 0.8
+        _DeformMultiplier ("Push Multiplier", Float) = 1.0
     }
 
     SubShader
@@ -109,7 +109,7 @@ Shader "Custom/Poke_Deform_Tessellated"
                 float3 _CapsulePointB;
                 float _CapsuleRadius;
                 float _DeformFalloff;
-                float _CapsuleDeformHeight;
+                float _DeformMultiplier;
             CBUFFER_END
             
             float3 GetViewDirectionFromPosition(float3 positionWS) {
@@ -124,15 +124,23 @@ Shader "Custom/Poke_Deform_Tessellated"
             #endif
             }
 
-            float CapsuleSDF(float3 pointA, float3 pointB, float capsuleRadius, float3 pos)
+            // Calculates radial distance perpendicular to the tool axis + forward tip distance
+            float ToolDistance(float3 tip, float3 basePt, float radius, float3 pos)
             {
-                float3 AB = pointB - pointA;
-                float3 AP = pos - pointA;
-                float ab2 = dot(AB, AB);
-                float h = (ab2 > 0.00001) ? saturate(dot(AP, AB) / ab2) : 0.0;
-                float3 Q = pointA + h * AB;
+                float3 axis = basePt - tip;
+                float axisLenSq = dot(axis, axis);
                 
-                return distance(pos, Q) - capsuleRadius;
+                if (axisLenSq < 0.00001)
+                    return distance(pos, tip) - radius;
+
+                float3 tipToPos = pos - tip;
+                // Project onto the infinite line behind the tip (h >= 0 means behind the tip along the shaft)
+                float h = max(0.0, dot(tipToPos, axis) / axisLenSq);
+                // Clamp to segment [0, 1] so the tool has a finite shaft length
+                h = saturate(h);
+                float3 closestPoint = tip + h * axis;
+                
+                return distance(pos, closestPoint) - radius;
             }
 
             ControlPoint tessVert(Attributes IN)
@@ -151,13 +159,12 @@ Shader "Custom/Poke_Deform_Tessellated"
             float CalcEdgeTessFactor(float3 posWS0, float3 posWS1)
             {
                 float3 edgeMid = (posWS0 + posWS1) * 0.5;
-                float d0 = CapsuleSDF(_CapsulePointA, _CapsulePointB, _CapsuleRadius, posWS0);
-                float d1 = CapsuleSDF(_CapsulePointA, _CapsulePointB, _CapsuleRadius, posWS1);
-                float dMid = CapsuleSDF(_CapsulePointA, _CapsulePointB, _CapsuleRadius, edgeMid);
+                float d0 = ToolDistance(_CapsulePointA, _CapsulePointB, _CapsuleRadius, posWS0);
+                float d1 = ToolDistance(_CapsulePointA, _CapsulePointB, _CapsuleRadius, posWS1);
+                float dMid = ToolDistance(_CapsulePointA, _CapsulePointB, _CapsuleRadius, edgeMid);
 
                 float minDist = min(min(d0, d1), dMid);
 
-                // Tessellation covers the Core Radius + Falloff Area + Extra Margin
                 float totalRange = max(0.001, _DeformFalloff + _TessellationMargin);
                 float factor = 1.0 - smoothstep(0.0, totalRange, minDist);
                 return lerp(1.0, _TessellationFactor, factor);
@@ -213,15 +220,25 @@ Shader "Custom/Poke_Deform_Tessellated"
                 float3 posWS = TransformObjectToWorld(IN.positionOS.xyz);
                 float3 normalWS = TransformObjectToWorldNormal(IN.normalOS);
                 
-                float capsuleDistance = CapsuleSDF(_CapsulePointA, _CapsulePointB, _CapsuleRadius, posWS);
+                // Distance from the tool capsule
+                float dist = ToolDistance(_CapsulePointA, _CapsulePointB, _CapsuleRadius, posWS);
 
-                // Deforms inside the core (distance <= 0) AND gradually across the falloff zone (0 < distance < _DeformFalloff)
-                if (capsuleDistance < _DeformFalloff)
+                if (dist < _DeformFalloff)
                 {
                     float falloff = max(0.0001, _DeformFalloff);
-                    // 0.0 at outer edge of falloff, 1.0 at the boundary of the core radius
-                    float factor = smoothstep(falloff, 0.0, capsuleDistance);
-                    posWS += normalWS * factor * _CapsuleDeformHeight;
+                    // Smooth bell-like falloff from 0 at outer edge to 1 at the tool core
+                    float t = saturate(1.0 - (max(0.0, dist) / falloff));
+                    float weight = t * t * (3.0 - 2.0 * t); // Smoothstep curve
+
+                    // Calculate how deep the tool tip has penetrated past this vertex along the surface normal
+                    float3 tipToVert = posWS - _CapsulePointA;
+                    // Push depth is how far behind the tip the vertex sits (plus the core radius)
+                    float penetration = dot(tipToVert, normalWS) + _CapsuleRadius;
+
+                    if (penetration > 0.0)
+                    {
+                        posWS -= normalWS * penetration * weight * _DeformMultiplier;
+                    }
                 }
                 
                 VertexPositionInputs posnInputs = GetVertexPositionInputs(TransformWorldToObject(posWS));

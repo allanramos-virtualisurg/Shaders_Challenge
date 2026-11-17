@@ -109,13 +109,14 @@ Material:
     - _Blend: 0
     - _BumpScale: 1
     - _CapsuleDeformHeight: -0.015
-    - _CapsuleRadius: 0.005
+    - _CapsuleRadius: 0.01
     - _Cull: 2
     - _Culling: 0
     - _Curvature: 0.3
     - _Cutoff: 0.5
     - _DecalTransmission: 1
     - _DeformFalloff: 0.02
+    - _DeformMultiplier: 1.66
     - _DetailBumpScale: 0.05
     - _Distortion: 0.01
     - _DstBlend: 0
@@ -171,8 +172,8 @@ Material:
     - _ZWrite: 1
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
-    - _CapsulePointA: {r: -0.08614977, g: 0.3102537, b: 0.057709243, a: 0}
-    - _CapsulePointB: {r: -0.08600689, g: 0.33356234, b: 0.056731485, a: 0}
+    - _CapsulePointA: {r: -0.13457745, g: 0.19538936, b: 0.066132225, a: 0}
+    - _CapsulePointB: {r: -0.14826217, g: 0.1986561, b: 0.047522392, a: 0}
     - _Color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
     - _DistanceFade: {r: 400, g: 0.01, b: 0, a: 0}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
